@@ -10,7 +10,7 @@ def get_countries(request):
         return Response({"error": "BusinessType is required"}, status=status.HTTP_400_BAD_REQUEST)
     query = """
         SELECT DISTINCT Country 
-        FROM vw_BusinessPeopleCountry 
+        FROM vw_BusinessFullDetails
         WHERE BusinessType = %s AND Country IS NOT NULL AND Country <> ''
         ORDER BY Country;
     """
@@ -27,7 +27,7 @@ def get_states(request):
         return Response({"error": "BusinessType and Country are required"}, status=status.HTTP_400_BAD_REQUEST)
     query = """
         SELECT DISTINCT State 
-        FROM vw_BusinessPeopleCountry 
+        FROM vw_BusinessFullDetails 
         WHERE BusinessType = %s AND Country = %s AND State IS NOT NULL AND State <> ''
         ORDER BY State;
     """
@@ -46,9 +46,24 @@ def get_businesses(request):
         return Response({"error": "BusinessType and Country are required"}, status=status.HTTP_400_BAD_REQUEST)
 
     query = """
-        SELECT BusinessName, Address, City, State, ZipCode, Phone 
-        FROM vw_BusinessPeopleCountry 
-        WHERE BusinessType = %s AND Country = %s
+        SELECT BusinessName, 
+               Address, 
+               City, 
+               State, 
+               ZipCode, 
+               PeoplePhone,
+               BusinessLogo AS ProfileImage,
+               BusinessFacebook AS Facebook,
+               BusinessPinterest AS Pinterest,
+               BusinessX AS Twitter,
+               BusinessInstagram AS Instagram,
+               RanchHomeHeading AS Heading,
+               RanchHomeText AS Description,
+               RanchHomeText2 AS Description2,
+               weblink AS Website,
+               Showaddress AS ShowAddress
+        FROM vw_BusinessFullDetails 
+        WHERE BusinessTypeID = %s AND Country = %s
     """
     params = [business_type, country]
 
@@ -61,6 +76,11 @@ def get_businesses(request):
     with connection.cursor() as cursor:
         cursor.execute(query, params)
         businesses = [dict(zip([col[0] for col in cursor.description], row)) for row in cursor.fetchall()]
+    MEDIA_URL_BASE = 'http://www.oatmealfarmnetwork.com/'
+    for business in businesses:
+        path = business.get("ProfileImage")
+        if path and not path.startswith("http"):
+            business["ProfileImage"] = f"{MEDIA_URL_BASE}{path}" 
     return Response(businesses)
 
 @api_view(['POST'])
@@ -101,7 +121,7 @@ def get_business_details(request):
     return Response(results)
 
 @api_view(['POST'])
-def get_business_logos_and_description(request):
+def get_business_enrichment(request):
     business_names = [
         name.strip() for name in request.data.get('businessNames', []) 
         if isinstance(name, str) and name.strip()
